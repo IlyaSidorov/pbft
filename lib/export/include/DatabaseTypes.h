@@ -118,12 +118,19 @@ struct Command
     };
 };
 
+enum class ResultId
+{
+    Success,
+    Failure
+};
+
 struct Message
 {
     TransactionId transactionId;
     NodeId nodeId;
     MessageId id;
     Command command;
+    ResultId resultId;
 };
 
 }

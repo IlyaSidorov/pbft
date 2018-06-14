@@ -32,9 +32,6 @@ SET(PBFT_FILES
     LinkProxy.h
     Node.cpp
     Node.h
-    Transaction.cpp
-    Transaction.h
-    TransactionInterface.h
     Utilities.h)
 
 SOURCE_GROUP("Source Files" FILES ${PBFT_FILES})

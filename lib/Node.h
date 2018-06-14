@@ -17,23 +17,37 @@ private:
     virtual void SetFaulty() override;
     virtual void SetOperational() override;
 
-    void OnReceive(const Message& messageReceived);
-    void OnPrePrepare(const Message& messageReceived);
-    void OnPrepare(const Message& messageReceived);
-    void OnCommit(const Message& messageReceived);
+    void OnReceive(const Message& receivedMessage);
+    void OnPrePrepare(const Message& receivedMessage);
+    void OnPrepare(const Message& receivedMessage);
+    void OnCommit(const Message& receivedMessage);
 
     bool TransactionCorrect(TransactionId id) const;
-    bool MessageCorrect(const Message& messageReceived) const;
-    void ProcessCommand();
+    bool MessageCorrect(const Message& receivedMessage) const;
 
-    ::std::mutex mutex;
+    uint32_t NodeCount() const;
+    bool Faulty() const;
+
+    void ProcessCommand();
+    void ProcessTopUpCommand();
+    void ProcessWithdrawCommand();
+    void ProcessTransmitCommand();
+    void ProcessBalanceCommand();
+
+    ::boost::optional<uint32_t> GetBalance(ClientId id) const;
+    ::boost::optional<int32_t> CommandEffect(const Command& command, ClientId clientId) const;
+
+    mutable ::std::mutex mutex;
     ::std::shared_ptr<LinkInterface> link;
     const NodeId id;
     uint32_t nodeCount{0u};
+    bool faulty{false};
     ::boost::optional<Message> message;
     uint32_t lastMessageId{static_cast<uint32_t>(-1)};
     uint32_t messageCount{0u};
-    bool faulty{false};
+    // ::boost::multi_index_container must be used instead of the ::std::vector.
+    // ::std::vector is taken for the implementation simplification
+    ::std::vector<Command> commands;
 };
 
 }
