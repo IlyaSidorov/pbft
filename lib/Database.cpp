@@ -64,7 +64,7 @@ uint32_t Database::Balance(ClientId id) const
 
 NodeId Database::GetFreeNodeId() const
 {
-
+    return 0;
 }
 
 }
