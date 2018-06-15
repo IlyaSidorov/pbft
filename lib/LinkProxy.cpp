@@ -25,13 +25,9 @@ LinkProxy::~LinkProxy()
 
 void LinkProxy::Uninitialize()
 {
-    if (service)
-    {
-        service->stop();
-    }
-
     if (thread)
     {
+        service->stop();
         thread->join();
     }
 

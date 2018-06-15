@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Pbft {
 
 class NodeInterface

@@ -8,7 +8,8 @@ enum class TransactionId
 {
     PrePrepare,
     Prepare,
-    Commit
+    Commit,
+    Result
 };
 
 using NodeId = uint32_t;

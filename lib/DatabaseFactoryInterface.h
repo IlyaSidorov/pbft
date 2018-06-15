@@ -2,7 +2,6 @@
 
 #include "LinkInterface.h"
 #include "NodeInterface.h"
-#include <memory>
 
 namespace Pbft {
 
@@ -15,7 +14,8 @@ public:
     DatabaseFactoryInterface& operator=(const DatabaseFactoryInterface&) = delete;
 
     virtual ::std::unique_ptr<LinkInterface> CreateLink() const = 0;
-    virtual ::std::unique_ptr<NodeInterface> CreateNode() const = 0;
+    virtual ::std::unique_ptr<NodeInterface> CreateNode(::std::shared_ptr<LinkInterface> linkToSet,
+        NodeId idToSet) const = 0;
 
 protected:
     DatabaseFactoryInterface() = default;

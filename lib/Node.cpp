@@ -7,6 +7,7 @@ Node::Node(::std::shared_ptr<LinkInterface> linkToSet, NodeId idToSet)
     : link(linkToSet)
     , id(idToSet)
 {
+    connection = link->Receive.connect([this](const Message& receivedMessage){OnReceive(receivedMessage);});
 }
 
 void Node::SetNodeCount(uint32_t count)
@@ -59,11 +60,7 @@ void Node::OnPrePrepare(const Message& receivedMessage)
     message = receivedMessage;
     message->nodeId = id;
     lastMessageId = receivedMessage.id;
-    messageCount = 0;
-
-    auto messageToSend(*message);
-    messageToSend.transactionId = TransactionId::Prepare;
-    link->Send(messageToSend);
+    InitiateTransaction(TransactionId::Prepare);
 }
 
 void Node::OnPrepare(const Message& receivedMessage)
@@ -76,13 +73,7 @@ void Node::OnPrepare(const Message& receivedMessage)
     if (Utilities::TransactionConfirmed(NodeCount(), ++messageCount))
     {
         message->transactionId = TransactionId::Prepare;
-        messageCount = 0;
-
-        ProcessCommand();
-
-        auto messageToSend(*message);
-        messageToSend.transactionId = TransactionId::Commit;
-        link->Send(messageToSend);
+        InitiateTransaction(TransactionId::Commit);
     }
 }
 
@@ -95,7 +86,9 @@ void Node::OnCommit(const Message& receivedMessage)
 
     if (Utilities::TransactionConfirmed(NodeCount(), ++messageCount))
     {
-        message == ::boost::none;
+        ProcessCommand();
+        InitiateTransaction(TransactionId::Result);
+        message = {};
     }
 }
 
@@ -109,16 +102,13 @@ bool Node::MessageCorrect(const Message& receivedMessage) const
     return ((message->id == receivedMessage.id) && (message->command == receivedMessage.command));
 }
 
-uint32_t Node::NodeCount() const
+void Node::InitiateTransaction(TransactionId transactionId)
 {
-    ::std::lock_guard<::std::mutex> lock(mutex);
-    return nodeCount;
-}
+    messageCount = 0;
 
-bool Node::Faulty() const
-{
-    ::std::lock_guard<::std::mutex> lock(mutex);
-    return faulty;
+    auto messageToSend(*message);
+    messageToSend.transactionId = transactionId;
+    link->Send(messageToSend);
 }
 
 void Node::ProcessCommand()
@@ -150,29 +140,35 @@ void Node::ProcessCommand()
 
 void Node::ProcessTopUpCommand()
 {
-    if (Faulty())
-    {
-        message->resultId = ResultId::Failure;
-        return;
-    }
-
     commands.emplace_back(message->command);
-    message->resultId = ResultId::Success;
+    message->resultId = Faulty() ? ResultId::Failure : ResultId::Success;
 }
 
 void Node::ProcessWithdrawCommand()
 {
-
+    ProcessSubtractingCommand(message->command.withdraw.id, message->command.withdraw.sum);
 }
 
 void Node::ProcessTransmitCommand()
 {
-
+    ProcessSubtractingCommand(message->command.transmit.sourceId, message->command.transmit.sum);
 }
 
 void Node::ProcessBalanceCommand()
 {
-
+    message->resultId = ResultId::Success;
+    if (Faulty())
+    {
+        message->command.balance.sum = Utilities::Random<decltype(message->command.balance.sum)>();
+    }
+    else if (auto balance = GetBalance(message->command.balance.id))
+    {
+        message->command.balance.sum = *balance;
+    }
+    else
+    {
+        message->resultId = ResultId::Failure;
+    }
 }
 
 ::boost::optional<uint32_t> Node::GetBalance(ClientId id) const
@@ -190,7 +186,7 @@ void Node::ProcessBalanceCommand()
 
     if (!clientFound)
     {
-        return ::boost::none;
+        return {};
     }
 
     return balance;
@@ -198,36 +194,71 @@ void Node::ProcessBalanceCommand()
 
 ::boost::optional<int32_t> Node::CommandEffect(const Command& command, ClientId clientId) const
 {
-    auto destinationId(0u);
-    auto destinationSum(0);
     switch (command.id)
     {
         case CommandId::TopUp:
         {
-            destinationId = command.topUp.id;
-            destinationSum = static_cast<int32_t>(command.topUp.sum);
+            if (command.topUp.id == clientId)
+            {
+                return static_cast<int32_t>(command.topUp.sum);
+            }
+            
             break;
         }
         case CommandId::Withdraw:
         {
-            destinationId = command.withdraw.id;
-            destinationSum = -static_cast<int32_t>(command.withdraw.sum);
+            if (command.withdraw.id == clientId)
+            {
+                return -static_cast<int32_t>(command.withdraw.sum);
+            }
+
             break;
         }
         case CommandId::Transmit:
         {
-            destinationId = command.transmit.destinationId;
-            destinationSum = static_cast<int32_t>(command.transmit.sum);
+            if (command.transmit.sourceId == clientId)
+            {
+                return -static_cast<int32_t>(command.transmit.sum);
+            }
+            else if (command.transmit.destinationId == clientId)
+            {
+                return static_cast<int32_t>(command.transmit.sum);
+            }
+
             break;
         }
     }
 
-    if (destinationId != clientId)
-    {
-        return ::boost::none;
-    }
+    return {};
+}
 
-    return destinationSum;
+void Node::ProcessSubtractingCommand(ClientId clientId, uint32_t sum)
+{
+    message->resultId = ResultId::Failure;
+    if (auto balance = GetBalance(clientId))
+    {
+        if (*balance >= sum)
+        {
+            commands.emplace_back(message->command);
+
+            if (!Faulty())
+            {
+                message->resultId = ResultId::Success;
+            }
+        }
+    }
+}
+
+uint32_t Node::NodeCount() const
+{
+    ::std::lock_guard<::std::mutex> lock(mutex);
+    return nodeCount;
+}
+
+bool Node::Faulty() const
+{
+    ::std::lock_guard<::std::mutex> lock(mutex);
+    return faulty;
 }
 
 }

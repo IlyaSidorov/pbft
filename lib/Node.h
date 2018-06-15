@@ -25,8 +25,7 @@ private:
     bool TransactionCorrect(TransactionId id) const;
     bool MessageCorrect(const Message& receivedMessage) const;
 
-    uint32_t NodeCount() const;
-    bool Faulty() const;
+    void InitiateTransaction(TransactionId transactionId);
 
     void ProcessCommand();
     void ProcessTopUpCommand();
@@ -36,10 +35,15 @@ private:
 
     ::boost::optional<uint32_t> GetBalance(ClientId id) const;
     ::boost::optional<int32_t> CommandEffect(const Command& command, ClientId clientId) const;
+    void ProcessSubtractingCommand(ClientId clientId, uint32_t sum);
+
+    uint32_t NodeCount() const;
+    bool Faulty() const;
 
     mutable ::std::mutex mutex;
     ::std::shared_ptr<LinkInterface> link;
     const NodeId id;
+    ::boost::signals2::scoped_connection connection;
     uint32_t nodeCount{0u};
     bool faulty{false};
     ::boost::optional<Message> message;
