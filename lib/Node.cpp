@@ -3,11 +3,19 @@
 
 namespace Pbft {
 
-Node::Node(::std::shared_ptr<LinkInterface> linkToSet, NodeId idToSet)
+Node::Node(::std::shared_ptr<LinkInterface> linkToSet, NodeId idToSet, const ::std::vector<Command>&
+    commandsToSet)
     : link(linkToSet)
     , id(idToSet)
+    , commands(commandsToSet)
 {
     connection = link->Receive.connect([this](const Message& receivedMessage){OnReceive(receivedMessage);});
+}
+
+const ::std::vector<Command>& Node::Commands() const
+{
+    ::std::lock_guard<::std::mutex> lock(mutex);
+    return commands;
 }
 
 void Node::SetNodeCount(uint32_t count)

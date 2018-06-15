@@ -127,11 +127,11 @@ enum class ResultId
 
 struct Message
 {
-    TransactionId transactionId;
-    NodeId nodeId;
-    MessageId id;
-    Command command;
-    ResultId resultId;
+    TransactionId transactionId{TransactionId::PrePrepare};
+    NodeId nodeId{0u};
+    MessageId id{static_cast<MessageId>(-1)};
+    Command command{CommandId::TopUp, {0u, 0u}};
+    ResultId resultId{ResultId::Success};
 };
 
 }

@@ -2,7 +2,7 @@
 
 #include "DatabaseInterface.h"
 #include "DatabaseFactoryInterface.h"
-#include <mutex>
+#include <future>
 
 namespace Pbft {
 
@@ -22,14 +22,25 @@ private:
     virtual void TopUp(ClientId id, uint32_t sum) override;
     virtual void Withdraw(ClientId id, uint32_t sum) override;
     virtual void Transmit(ClientId sourceId, ClientId destinationId, uint32_t sum) override;
-    virtual uint32_t Balance(ClientId id) const override;
+    virtual uint32_t Balance(ClientId id) override;
 
-    NodeId GetFreeNodeId() const;
+    NodeId FreeNodeId() const;
+    void SetNodeCount() const;
+    void ExecuteTransaction();
+    void InitiateTransaction();
+    void WaitResult();
+
+    void OnReceive(const Message& receivedMessage);
 
     static ::std::mutex mutex;
     static ::std::unique_ptr<DatabaseInterface> instance;
     ::std::shared_ptr<DatabaseFactoryInterface> factory;
-
+    ::std::shared_ptr<LinkInterface> link;
+    ::boost::signals2::scoped_connection connection;
+    ::std::map<NodeId, ::std::shared_ptr<NodeInterface>> nodes;
+    Message message;
+    uint32_t messageCount{0u};
+    ::std::unique_ptr<::std::promise<void>> promise;
 };
 
 }

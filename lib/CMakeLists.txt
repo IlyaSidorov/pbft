@@ -24,14 +24,15 @@ SET(PBFT_FILES
     Database.cpp
     Database.h
     DatabaseFactory.cpp
-    DatabaseFactoryInterface.h
     DatabaseFactory.h
+    DatabaseFactoryInterface.h
     DatabaseInterface.h
     LinkInterface.h
     LinkProxy.cpp
     LinkProxy.h
     Node.cpp
     Node.h
+    NodeInterface.h
     Utilities.h)
 
 SOURCE_GROUP("Source Files" FILES ${PBFT_FILES})
