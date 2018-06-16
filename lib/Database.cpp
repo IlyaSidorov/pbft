@@ -1,6 +1,7 @@
 #include "Database.h"
 #include "DatabaseFactory.h"
 #include "Utilities.h"
+#include <sstream>
 
 namespace Pbft {
 
@@ -136,7 +137,7 @@ void Database::InitiateTransaction()
 void Database::WaitResult()
 {
     // No timeout is possible in current implementation for the simplification
-    promise->get_future().wait();
+    promise->get_future().get();
 }
 
 void Database::OnReceive(const Message& receivedMessage)
@@ -145,38 +146,75 @@ void Database::OnReceive(const Message& receivedMessage)
     {
         if (receivedMessage.resultId == ResultId::Success)
         {
-            succeededCommands.emplace_back(receivedMessage.command);
+            ++succeededCommands[receivedMessage.command];
         }
 
         if (++messageCount == nodes.size())
         {
-            CheckSucceededCommands();
-            promise->set_value();
+            ProcessSucceededCommands();
         }
     }
 }
 
-void Database::CheckSucceededCommands() const
+void Database::ProcessSucceededCommands()
 {
-    if (Utilities::TransactionConfirmed(nodes.size(), succeededCommands.size()))
+    try
     {
+        CheckSucceededCommandsReceived();
+
+        auto count(0u);
+        auto command(GetCommandWithMaximumReplication(count));
+        CheckCommandWithMaximumReplication(command, count);
+
+        promise->set_value();
+    }
+    catch (const ::std::exception&)
+    {
+        promise->set_exception(::std::current_exception());
     }
 }
 
-void Database::CheckTopUpResult() const
+void Database::CheckSucceededCommandsReceived()
 {
+    if (succeededCommands.empty())
+    {
+        throw ::std::runtime_error("Succeeded commands has not been received");
+    }
 }
 
-void Database::CheckWithdrawResult() const
+const Command& Database::GetCommandWithMaximumReplication(uint32_t& count) const
 {
+    using ElementType = decltype(succeededCommands)::value_type;
+    const auto element(::std::max_element(succeededCommands.begin(), succeededCommands.end(), [](
+        const ElementType& left, const ElementType& right) {return (left.second < right.second);}));
+
+    count = element->second;
+    return element->first;
 }
 
-void Database::CheckTransmitResult() const
+void Database::CheckCommandWithMaximumReplication(const Command& command, uint32_t count)
 {
+    if (!Utilities::TransactionConfirmed(nodes.size(), count))
+    {
+        ::std::stringstream errorStream;
+        errorStream << "Transaction not confirmed: " << count << " commands succeeded of " << nodes.size();
+        throw ::std::runtime_error(errorStream.str());
+    }
+
+    RegisterResult(command);
+
+    if (message.command != command)
+    {
+        throw ::std::runtime_error("Invalid command received");
+    }
 }
 
-void Database::CheckBalanceResult() const
+void Database::RegisterResult(const Command& command)
 {
+    if ((message.command.id == CommandId::Balance) && (command.id == CommandId::Balance))
+    {
+        message.command.balance.sum = command.balance.sum;
+    }
 }
 
 }

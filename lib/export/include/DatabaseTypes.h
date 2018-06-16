@@ -35,6 +35,11 @@ struct TopUpCommand
         return !operator==(right);
     }
 
+    bool operator<(const TopUpCommand& right) const
+    {
+        return ((id < right.id) || ((id == right.id) && (sum < right.sum)));
+    }
+
     ClientId id;
     uint32_t sum;
 };
@@ -49,6 +54,11 @@ struct WithdrawCommand
     bool operator!=(const WithdrawCommand& right) const
     {
         return !operator==(right);
+    }
+
+    bool operator<(const WithdrawCommand& right) const
+    {
+        return ((id < right.id) || ((id == right.id) && (sum < right.sum)));
     }
 
     ClientId id;
@@ -67,6 +77,14 @@ struct TransmitCommand
         return !operator==(right);
     }
 
+    bool operator<(const TransmitCommand& right) const
+    {
+        return
+            ((sourceId < right.sourceId) ||
+             ((sourceId == right.sourceId) && (destinationId < right.destinationId)) ||
+             ((sourceId == right.sourceId) && (destinationId == right.destinationId) && (sum < right.sum)));
+    }
+
     ClientId sourceId;
     ClientId destinationId;
     uint32_t sum;
@@ -82,6 +100,11 @@ struct BalanceCommand
     bool operator!=(const BalanceCommand& right) const
     {
         return !operator==(right);
+    }
+
+    bool operator<(const BalanceCommand& right) const
+    {
+        return ((id < right.id) || ((id == right.id) && (sum < right.sum)));
     }
 
     ClientId id;
@@ -107,6 +130,17 @@ struct Command
     bool operator!=(const Command& right) const
     {
         return !operator==(right);
+    }
+
+    bool operator<(const Command& right) const
+    {
+        return
+            ((id < right.id) ||
+             ((id == right.id) &&
+              (((id == CommandId::TopUp) && (topUp < right.topUp)) ||
+               ((id == CommandId::Withdraw) && (withdraw < right.withdraw)) ||
+               ((id == CommandId::Transmit) && (transmit < right.transmit)) ||
+               ((id == CommandId::Balance) && (balance < right.balance)))));
     }
 
     CommandId id;

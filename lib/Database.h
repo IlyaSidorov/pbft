@@ -32,11 +32,11 @@ private:
 
     void OnReceive(const Message& receivedMessage);
 
-    void CheckSucceededCommands() const;
-    void CheckTopUpResult() const;
-    void CheckWithdrawResult() const;
-    void CheckTransmitResult() const;
-    void CheckBalanceResult() const;
+    void ProcessSucceededCommands();
+    void CheckSucceededCommandsReceived();
+    const Command& GetCommandWithMaximumReplication(uint32_t& count) const;
+    void CheckCommandWithMaximumReplication(const Command& command, uint32_t count);
+    void RegisterResult(const Command& command);
 
     static ::std::mutex mutex;
     static ::std::unique_ptr<DatabaseInterface> instance;
@@ -46,7 +46,7 @@ private:
     ::std::map<NodeId, ::std::shared_ptr<NodeInterface>> nodes;
     Message message;
     uint32_t messageCount{0u};
-    ::std::list<Command> succeededCommands;
+    ::std::map<Command, uint32_t> succeededCommands;
     ::std::unique_ptr<::std::promise<void>> promise;
 };
 
