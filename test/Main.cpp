@@ -74,6 +74,14 @@ void Client0Activity(::std::shared_ptr<::Pbft::ClientConnectionInterface> client
         try
         {
             ShowBalance(id, "before TopUp", client->Balance());
+        }
+        catch (const ::std::exception& ex)
+        {
+            ShowClientMessage(id, ex.what());
+        }
+
+        try
+        {
             const auto sum(10);
             client->TopUp(sum);
             ShowBalance(id, "after TopUp", client->Balance());
@@ -156,16 +164,24 @@ void AdministratorActivity(::std::shared_ptr<::Pbft::BackdoorConnectionInterface
     const auto nodeCount1(1u);
     const auto nodeCount2(2u);
     const auto nodeCount3(3u);
+    const auto nodeCount4(4u);
+    const auto nodeCount5(5u);
     ::std::vector<::std::function<void()>> activities
     {
+        [&backdoor, &nodeIds, nodeCount4]{CreateNodes(backdoor, nodeIds, nodeCount4);},
         [&backdoor, &nodeIds, nodeCount1]{MakeNodesFaulty(backdoor, nodeIds, nodeCount1);},
         [&backdoor, &nodeIds, nodeCount2]{MakeNodesFaulty(backdoor, nodeIds, nodeCount2);},
-        [&backdoor, &nodeIds, nodeCount3]{CreateNodes(backdoor, nodeIds, nodeCount3);},
         [&backdoor, &nodeIds, nodeCount3]{MakeNodesFaulty(backdoor, nodeIds, nodeCount3);},
-        [&backdoor, &nodeIds, nodeCount2]{MakeNodesFaulty(backdoor, nodeIds, nodeCount2);},
+        [&backdoor, &nodeIds, nodeCount3]{CreateNodes(backdoor, nodeIds, nodeCount3);},
+        [&backdoor, &nodeIds, nodeCount4]{MakeNodesFaulty(backdoor, nodeIds, nodeCount4);},
+        [&backdoor, &nodeIds, nodeCount5]{MakeNodesFaulty(backdoor, nodeIds, nodeCount5);},
+        [&backdoor, &nodeIds, nodeCount4]{MakeNodesFaulty(backdoor, nodeIds, nodeCount4);},
+        [&backdoor, &nodeIds, nodeCount3]{MakeNodesFaulty(backdoor, nodeIds, nodeCount3);},
         [&backdoor, &nodeIds, nodeCount3]{DeleteNodes(backdoor, nodeIds, nodeCount3);},
+        [&backdoor, &nodeIds, nodeCount2]{MakeNodesFaulty(backdoor, nodeIds, nodeCount2);},
         [&backdoor, &nodeIds, nodeCount1]{MakeNodesFaulty(backdoor, nodeIds, nodeCount1);},
         [&backdoor, &nodeIds, nodeCount0]{MakeNodesFaulty(backdoor, nodeIds, nodeCount0);},
+        [&backdoor, &nodeIds, nodeCount4]{DeleteNodes(backdoor, nodeIds, nodeCount4);}
     };
 
     auto currentActivity(0u);
@@ -199,9 +215,6 @@ void main()
         CreateClientConnection(clientId1));
     ::std::shared_ptr<::Pbft::BackdoorConnectionInterface> backdoor(::Pbft::ConnectionFactory::
         CreateBackdoorConnection());
-
-    const auto sum(10);
-    client0->TopUp(sum);
 
     ::std::condition_variable condition;
     ::std::mutex mutex;
