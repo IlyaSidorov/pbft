@@ -24,6 +24,7 @@ private:
     virtual void Transmit(ClientId sourceId, ClientId destinationId, uint32_t sum) override;
     virtual uint32_t Balance(ClientId id) override;
 
+    void CheckDatabase() const;
     NodeId FreeNodeId() const;
     void SetNodeCount() const;
     void ExecuteTransaction();

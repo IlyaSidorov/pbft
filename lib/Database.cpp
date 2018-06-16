@@ -65,6 +65,7 @@ void Database::SetOperational(NodeId id)
 void Database::TopUp(ClientId id, uint32_t sum)
 {
     ::std::lock_guard<::std::mutex> lock(mutex);
+    CheckDatabase();
     message.command.id = CommandId::TopUp;
     message.command.topUp.id = id;
     message.command.topUp.sum = sum;
@@ -74,6 +75,7 @@ void Database::TopUp(ClientId id, uint32_t sum)
 void Database::Withdraw(ClientId id, uint32_t sum)
 {
     ::std::lock_guard<::std::mutex> lock(mutex);
+    CheckDatabase();
     message.command.id = CommandId::Withdraw;
     message.command.withdraw.id = id;
     message.command.withdraw.sum = sum;
@@ -83,6 +85,7 @@ void Database::Withdraw(ClientId id, uint32_t sum)
 void Database::Transmit(ClientId sourceId, ClientId destinationId, uint32_t sum)
 {
     ::std::lock_guard<::std::mutex> lock(mutex);
+    CheckDatabase();
     message.command.id = CommandId::Transmit;
     message.command.transmit.sourceId = sourceId;
     message.command.transmit.destinationId = destinationId;
@@ -93,10 +96,23 @@ void Database::Transmit(ClientId sourceId, ClientId destinationId, uint32_t sum)
 uint32_t Database::Balance(ClientId id)
 {
     ::std::lock_guard<::std::mutex> lock(mutex);
+    CheckDatabase();
     message.command.id = CommandId::Balance;
     message.command.balance.id = id;
     ExecuteTransaction();
     return message.command.balance.sum;
+}
+
+void Database::CheckDatabase() const
+{
+    const auto minimumNodeCount(4u);
+    if (nodes.size() < minimumNodeCount)
+    {
+        ::std::stringstream errorStream;
+        errorStream << "Database not initialized: " << minimumNodeCount << " nodes required minimum, " <<
+            nodes.size() << " nodes available";
+        throw ::std::runtime_error(errorStream.str());
+    }
 }
 
 NodeId Database::FreeNodeId() const
@@ -178,7 +194,7 @@ void Database::CheckSucceededCommandsReceived()
 {
     if (succeededCommands.empty())
     {
-        throw ::std::runtime_error("Succeeded commands has not been received");
+        throw ::std::runtime_error("Succeeded commands not received");
     }
 }
 
