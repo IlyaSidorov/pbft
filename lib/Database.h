@@ -32,6 +32,12 @@ private:
 
     void OnReceive(const Message& receivedMessage);
 
+    void CheckSucceededCommands() const;
+    void CheckTopUpResult() const;
+    void CheckWithdrawResult() const;
+    void CheckTransmitResult() const;
+    void CheckBalanceResult() const;
+
     static ::std::mutex mutex;
     static ::std::unique_ptr<DatabaseInterface> instance;
     ::std::shared_ptr<DatabaseFactoryInterface> factory;
@@ -40,6 +46,7 @@ private:
     ::std::map<NodeId, ::std::shared_ptr<NodeInterface>> nodes;
     Message message;
     uint32_t messageCount{0u};
+    ::std::list<Command> succeededCommands;
     ::std::unique_ptr<::std::promise<void>> promise;
 };
 

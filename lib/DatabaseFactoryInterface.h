@@ -17,7 +17,7 @@ public:
     virtual ::std::unique_ptr<NodeInterface> CreateNode(::std::shared_ptr<LinkInterface> linkToSet,
         NodeId idToSet) const = 0;
     virtual ::std::unique_ptr<NodeInterface> CreateNode(::std::shared_ptr<LinkInterface> linkToSet,
-        NodeId idToSet, const ::std::vector<Command>& commands) const = 0;
+        NodeId idToSet, const ::std::list<Command>& commands) const = 0;
 
 protected:
     DatabaseFactoryInterface() = default;

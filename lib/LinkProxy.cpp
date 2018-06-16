@@ -6,10 +6,10 @@ LinkProxy::LinkProxy()
 {
     try
     {
-        service = ::std::make_unique<::boost::asio::io_service>();
-        work = ::std::make_unique<::boost::asio::io_service::work>(*service);
-        strand = ::std::make_unique<::boost::asio::io_service::strand>(*service);
-        thread = ::std::make_unique<::std::thread>([this] {service->run(); });
+        context = ::std::make_unique<::boost::asio::io_context>();
+        work = ::std::make_unique<::boost::asio::io_context::work>(*context);
+        strand = ::std::make_unique<::boost::asio::io_context::strand>(*context);
+        thread = ::std::make_unique<::std::thread>([this]{context->run();});
     }
     catch (const std::exception&)
     {
@@ -27,14 +27,14 @@ void LinkProxy::Uninitialize()
 {
     if (thread)
     {
-        service->stop();
+        context->stop();
         thread->join();
     }
 
     thread.reset();
     strand.reset();
     work.reset();
-    service.reset();
+    context.reset();
 }
 
 void LinkProxy::Send(const Message& message) const

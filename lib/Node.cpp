@@ -3,16 +3,15 @@
 
 namespace Pbft {
 
-Node::Node(::std::shared_ptr<LinkInterface> linkToSet, NodeId idToSet, const ::std::vector<Command>&
-    commandsToSet)
+Node::Node(::std::shared_ptr<LinkInterface> linkToSet, NodeId id, const ::std::list<Command>& commandsToSet)
     : link(linkToSet)
-    , id(idToSet)
     , commands(commandsToSet)
 {
     connection = link->Receive.connect([this](const Message& receivedMessage){OnReceive(receivedMessage);});
+    message.nodeId = id;
 }
 
-const ::std::vector<Command>& Node::Commands() const
+const ::std::list<Command>& Node::Commands() const
 {
     ::std::lock_guard<::std::mutex> lock(mutex);
     return commands;
@@ -60,122 +59,176 @@ void Node::OnReceive(const Message& receivedMessage)
 
 void Node::OnPrePrepare(const Message& receivedMessage)
 {
-    if ((static_cast<int32_t>(receivedMessage.id) - static_cast<int32_t>(lastMessageId)) <= 0)
+    if ((static_cast<int32_t>(receivedMessage.id) - static_cast<int32_t>(message.id)) <= 0)
     {
         return;
     }
 
-    message = receivedMessage;
-    message->nodeId = id;
-    lastMessageId = receivedMessage.id;
-    InitiateTransaction(TransactionId::Prepare);
+    message.transactionId = receivedMessage.transactionId;
+    message.id = receivedMessage.id;
+    message.command = receivedMessage.command;
+    PrePrepareCommand();
+    InitiateTransaction(PrepareMessageToSend(TransactionId::Prepare));
 }
 
 void Node::OnPrepare(const Message& receivedMessage)
 {
-    if ((!TransactionCorrect(TransactionId::PrePrepare)) || (!MessageCorrect(receivedMessage)))
+    RegisterReceivedMessage(TransactionId::PrePrepare, receivedMessage);
+    if (messageCount == NodeCount())
     {
-        return;
-    }
-
-    if (Utilities::TransactionConfirmed(NodeCount(), ++messageCount))
-    {
-        message->transactionId = TransactionId::Prepare;
-        InitiateTransaction(TransactionId::Commit);
+        message.transactionId = TransactionId::Prepare;
+        if (Utilities::TransactionConfirmed(messageCount, validMessageCount))
+        {
+            InitiateTransaction(PrepareMessageToSend(TransactionId::Commit));
+        }
+        else
+        {
+            message.resultId = ResultId::Failure;
+            InitiateTransaction(PrepareMessageToSend(TransactionId::Result));
+        }
     }
 }
 
 void Node::OnCommit(const Message& receivedMessage)
 {
-    if ((!TransactionCorrect(TransactionId::Prepare)) || (!MessageCorrect(receivedMessage)))
+    RegisterReceivedMessage(TransactionId::Prepare, receivedMessage);
+    if (messageCount == NodeCount())
     {
-        return;
-    }
+        message.transactionId = TransactionId::Commit;
+        if (Utilities::TransactionConfirmed(messageCount, validMessageCount))
+        {
+            CommitSucceededCommand();
+        }
+        else
+        {
+            message.resultId = ResultId::Failure;
+        }
 
-    if (Utilities::TransactionConfirmed(NodeCount(), ++messageCount))
+        InitiateTransaction(PrepareMessageToSend(TransactionId::Result));
+    }
+}
+
+void Node::RegisterReceivedMessage(TransactionId transactionId, const Message& receivedMessage)
+{
+    ++messageCount;
+    if (TransactionCorrect(transactionId) && MessageCorrect(receivedMessage))
     {
-        ProcessCommand();
-        InitiateTransaction(TransactionId::Result);
-        message = {};
+        ++validMessageCount;
     }
 }
 
 bool Node::TransactionCorrect(TransactionId id) const
 {
-    return (message && (message->transactionId == id));
+    return (message.transactionId == id);
 }
 
 bool Node::MessageCorrect(const Message& receivedMessage) const
 {
-    return ((message->id == receivedMessage.id) && (message->command == receivedMessage.command));
+    return ((receivedMessage.id == message.id) && (receivedMessage.command == message.command));
 }
 
-void Node::InitiateTransaction(TransactionId transactionId)
+Message Node::PrepareMessageToSend(TransactionId transactionId) const
+{
+    auto messageToSend(message);
+    messageToSend.transactionId = transactionId;
+    if ((messageToSend.transactionId == TransactionId::Prepare) && Faulty())
+    {
+        if (messageToSend.command.id == CommandId::Balance)
+        {
+            messageToSend.command.balance.sum = Utilities::Random<decltype(messageToSend.command.balance.
+                sum)>();
+        }
+        else
+        {
+            --messageToSend.id;
+        }
+    }
+
+    return messageToSend;
+}
+
+void Node::InitiateTransaction(const Message& messageToSend)
 {
     messageCount = 0;
-
-    auto messageToSend(*message);
-    messageToSend.transactionId = transactionId;
+    validMessageCount = 0;
     link->Send(messageToSend);
 }
 
-void Node::ProcessCommand()
+void Node::PrePrepareCommand()
 {
-    switch (message->command.id)
+    switch (message.command.id)
     {
         case CommandId::TopUp:
         {
-            ProcessTopUpCommand();
+            PrePrepareTopUpCommand();
             break;
         }
         case CommandId::Withdraw:
         {
-            ProcessWithdrawCommand();
+            PrePrepareWithdrawCommand();
             break;
         }
         case CommandId::Transmit:
         {
-            ProcessTransmitCommand();
+            PrePrepareTransmitCommand();
             break;
         }
         case CommandId::Balance:
         {
-            ProcessBalanceCommand();
+            PrePrepareBalanceCommand();
             break;
         }
     }
 }
 
-void Node::ProcessTopUpCommand()
+void Node::PrePrepareTopUpCommand()
 {
-    commands.emplace_back(message->command);
-    message->resultId = Faulty() ? ResultId::Failure : ResultId::Success;
+    message.resultId = ResultId::Success;
 }
 
-void Node::ProcessWithdrawCommand()
+void Node::PrePrepareWithdrawCommand()
 {
-    ProcessSubtractingCommand(message->command.withdraw.id, message->command.withdraw.sum);
+    PrePrepareSubtractingCommand(message.command.withdraw.id, message.command.withdraw.sum);
 }
 
-void Node::ProcessTransmitCommand()
+void Node::PrePrepareTransmitCommand()
 {
-    ProcessSubtractingCommand(message->command.transmit.sourceId, message->command.transmit.sum);
+    PrePrepareSubtractingCommand(message.command.transmit.sourceId, message.command.transmit.sum);
 }
 
-void Node::ProcessBalanceCommand()
+void Node::PrePrepareBalanceCommand()
 {
-    message->resultId = ResultId::Success;
-    if (Faulty())
+    if (auto balance = GetBalance(message.command.balance.id))
     {
-        message->command.balance.sum = Utilities::Random<decltype(message->command.balance.sum)>();
-    }
-    else if (auto balance = GetBalance(message->command.balance.id))
-    {
-        message->command.balance.sum = *balance;
+        message.command.balance.sum = *balance;
+        message.resultId = ResultId::Success;
     }
     else
     {
-        message->resultId = ResultId::Failure;
+        message.command.balance.sum = 0;
+        message.resultId = ResultId::Failure;
+    }
+}
+
+void Node::PrePrepareSubtractingCommand(ClientId clientId, uint32_t sum)
+{
+    if (auto balance = GetBalance(clientId))
+    {
+        if (*balance >= sum)
+        {
+            message.resultId = ResultId::Success;
+            return;
+        }
+    }
+
+    message.resultId = ResultId::Failure;
+}
+
+void Node::CommitSucceededCommand()
+{
+    if ((message.command.id != CommandId::Balance) && (message.resultId == ResultId::Success))
+    {
+        commands.emplace_back(message.command);
     }
 }
 
@@ -238,23 +291,6 @@ void Node::ProcessBalanceCommand()
     }
 
     return {};
-}
-
-void Node::ProcessSubtractingCommand(ClientId clientId, uint32_t sum)
-{
-    message->resultId = ResultId::Failure;
-    if (auto balance = GetBalance(clientId))
-    {
-        if (*balance >= sum)
-        {
-            commands.emplace_back(message->command);
-
-            if (!Faulty())
-            {
-                message->resultId = ResultId::Success;
-            }
-        }
-    }
 }
 
 uint32_t Node::NodeCount() const

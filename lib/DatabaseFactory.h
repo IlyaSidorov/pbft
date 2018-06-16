@@ -11,7 +11,7 @@ private:
     virtual ::std::unique_ptr<NodeInterface> CreateNode(::std::shared_ptr<LinkInterface> linkToSet,
         NodeId idToSet) const override;
     virtual ::std::unique_ptr<NodeInterface> CreateNode(::std::shared_ptr<LinkInterface> linkToSet,
-        NodeId idToSet, const ::std::vector<Command>& commands) const override;
+        NodeId idToSet, const ::std::list<Command>& commands) const override;
 };
 
 }

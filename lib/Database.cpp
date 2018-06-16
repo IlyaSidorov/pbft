@@ -1,5 +1,6 @@
 #include "Database.h"
 #include "DatabaseFactory.h"
+#include "Utilities.h"
 
 namespace Pbft {
 
@@ -127,6 +128,7 @@ void Database::InitiateTransaction()
 {
     ++message.id;
     messageCount = 0;
+    succeededCommands.clear();
     promise = ::std::make_unique<::std::promise<void>>();
     link->Send(message);
 }
@@ -138,6 +140,42 @@ void Database::WaitResult()
 }
 
 void Database::OnReceive(const Message& receivedMessage)
+{
+    if ((receivedMessage.transactionId == TransactionId::Result) && (receivedMessage.id == message.id))
+    {
+        if (receivedMessage.resultId == ResultId::Success)
+        {
+            succeededCommands.emplace_back(receivedMessage.command);
+        }
+
+        if (++messageCount == nodes.size())
+        {
+            CheckSucceededCommands();
+            promise->set_value();
+        }
+    }
+}
+
+void Database::CheckSucceededCommands() const
+{
+    if (Utilities::TransactionConfirmed(nodes.size(), succeededCommands.size()))
+    {
+    }
+}
+
+void Database::CheckTopUpResult() const
+{
+}
+
+void Database::CheckWithdrawResult() const
+{
+}
+
+void Database::CheckTransmitResult() const
+{
+}
+
+void Database::CheckBalanceResult() const
 {
 }
 
