@@ -164,7 +164,7 @@ struct Message
     TransactionId transactionId{TransactionId::PrePrepare};
     NodeId nodeId{0u};
     MessageId id{static_cast<MessageId>(-1)};
-    Command command{CommandId::TopUp, {0u, 0u}};
+    Command command{CommandId::TopUp, {TopUpCommand{0u, 0u}}};
     ResultId resultId{ResultId::Success};
 };
 

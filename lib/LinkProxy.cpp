@@ -6,9 +6,9 @@ LinkProxy::LinkProxy()
 {
     try
     {
-        context = ::std::make_unique<::boost::asio::io_context>();
-        work = ::std::make_unique<::boost::asio::io_context::work>(*context);
-        strand = ::std::make_unique<::boost::asio::io_context::strand>(*context);
+        context = ::std::make_unique<::boost::asio::io_service>();
+        work = ::std::make_unique<::boost::asio::io_service::work>(*context);
+        strand = ::std::make_unique<::boost::asio::io_service::strand>(*context);
         thread = ::std::make_unique<::std::thread>([this]{context->run();});
     }
     catch (const std::exception&)

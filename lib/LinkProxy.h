@@ -2,6 +2,7 @@
 
 #include "LinkInterface.h"
 #include <boost/asio.hpp>
+#include <thread>
 
 namespace Pbft {
 
@@ -16,9 +17,9 @@ private:
 
     virtual void Send(const Message& message) const override;
 
-    ::std::unique_ptr<::boost::asio::io_context> context;
-    ::std::unique_ptr<::boost::asio::io_context::work> work;
-    ::std::unique_ptr<::boost::asio::io_context::strand> strand;
+    ::std::unique_ptr<::boost::asio::io_service> context;
+    ::std::unique_ptr<::boost::asio::io_service::work> work;
+    ::std::unique_ptr<::boost::asio::io_service::strand> strand;
     ::std::unique_ptr<::std::thread> thread;
 };
 

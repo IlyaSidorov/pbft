@@ -1,8 +1,12 @@
 #include "ConnectionFactory.h"
+#ifdef _WIN32
+#include <conio.h>
+#endif
 #include <condition_variable>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -10,9 +14,15 @@ namespace {
 void WaitInput()
 {
 #ifdef _WIN32
-    system("pause");
+    ::std::cout << "Press <Enter> to continue..." << ::std::endl;
+    const auto keyNotPressed(0);
+    while (_kbhit() == keyNotPressed)
+    {
+        ::std::this_thread::sleep_for(::std::chrono::milliseconds(200ll));
+    }
 #else
-    system("read");
+    ::std::cout << "Press <Enter> to continue..." << ::std::endl;
+    ::std::cin.get();
 #endif
 }
 
@@ -120,7 +130,7 @@ void Client1Activity(::std::shared_ptr<::Pbft::ClientConnectionInterface> client
 void MakeNodesFaulty(::std::shared_ptr<::Pbft::BackdoorConnectionInterface> backdoor,
     const ::std::vector<::Pbft::NodeId>& nodeIds, uint32_t count)
 {
-    ShowAdministratorActivityMessage("Make", count, "nodes faulty");
+    ShowAdministratorActivityMessage("Make", count, "node(s) faulty");
     for (const auto& id : nodeIds)
     {
         if (count > 0)
@@ -138,7 +148,7 @@ void MakeNodesFaulty(::std::shared_ptr<::Pbft::BackdoorConnectionInterface> back
 void CreateNodes(::std::shared_ptr<::Pbft::BackdoorConnectionInterface> backdoor,
     ::std::vector<::Pbft::NodeId>& nodeIds, uint32_t count)
 {
-    ShowAdministratorActivityMessage("Create", count, "nodes");
+    ShowAdministratorActivityMessage("Create", count, "node(s)");
     while (count-- > 0)
     {
         nodeIds.emplace_back(backdoor->CreateNode());
@@ -148,7 +158,7 @@ void CreateNodes(::std::shared_ptr<::Pbft::BackdoorConnectionInterface> backdoor
 void DeleteNodes(::std::shared_ptr<::Pbft::BackdoorConnectionInterface> backdoor,
     ::std::vector<::Pbft::NodeId>& nodeIds, uint32_t count)
 {
-    ShowAdministratorActivityMessage("Delete", count, "nodes");
+    ShowAdministratorActivityMessage("Delete", count, "node(s)");
     while (count-- > 0)
     {
         backdoor->DeleteNode(nodeIds.back());
@@ -205,7 +215,7 @@ void AdministratorActivity(::std::shared_ptr<::Pbft::BackdoorConnectionInterface
 
 }
 
-void main()
+int main()
 {
     auto clientId0(0u);
     ::std::shared_ptr<::Pbft::ClientConnectionInterface> client0(::Pbft::ConnectionFactory::
